@@ -2,7 +2,7 @@
 
 ## Telegram Channel: https://t.me/hyperbridgechat
 
-## Modified From: Fabio Crispino aka Finalgalaxy Telegram Bot in NodeJS
+ Modified From: Fabio Crispino aka Finalgalaxy Telegram Bot in NodeJS
 
 ## How to create the bot
 
