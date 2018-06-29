@@ -1,6 +1,8 @@
 # Telegram Bot for Hyperbridge Organization Telegram Channel
 
-##Telegram Channel: https://t.me/hyperbridgechat
+## Telegram Channel: https://t.me/hyperbridgechat
+
+## Modified From: Fabio Crispino aka Finalgalaxy Telegram Bot in NodeJS
 
 ## How to create the bot
 
