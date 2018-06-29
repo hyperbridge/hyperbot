@@ -1,4 +1,4 @@
-# Telegram Bot for Hyperbridge Organization Telegram Channel
+# Telegram Bot for Hyperbridge Channels
 
 ## Telegram Channel: https://t.me/hyperbridgechat
 
