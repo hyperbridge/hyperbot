@@ -22,8 +22,8 @@ var usernameToIDTable = {fr0stbyte2: 420734418, JPCullen: 489252909};         //
 var messagesToDelete = [/Join my/gi, /Partner Channel/gi];
 var telegramRegex = /@[a-zA-Z0-9_]*/gi;
 var messageReason = {
-    "Join my": "Spamming Telegrams Channels",
-    "Partner Channel": "Spamming Telegrams Channels"
+    "Join my": "Potential spam",
+    "Partner Channel": "Potential spam"
 };
 
 const bot = new Telegraf(config.telegraf_token);    // Let's instantiate a bot using our token.
@@ -52,6 +52,7 @@ bot.hears(/!ban/i, (ctx) => {
         var userNameToBan = (ctx.update.message.text).slice(6);
         var userIdToBan = usernameToIDTable[userNameToBan];
         console.log(`Banning Username(@${userNameToBan}) ID:`, userIdToBan);
+        ctx.reply(`@${userNameToBan} was removed from group because: Spam account`);
         ctx.tg.kickChatMember(ctx.chat.id, userIdToBan).then(function() {console.log("Ban Successful");}, function(err) {console.log("Ban was unsucessful", err);});
     } else {
         saveBadActorID(ctx);
@@ -62,13 +63,11 @@ bot.hears(/!ban/i, (ctx) => {
 
 // Automatically deletes messages in the telegram chat that has the specific phrases in messagesToDelete
 bot.hears(messagesToDelete, (ctx) => {
-    console.log(ctx.update.message.from);
-    saveBadActorID(ctx);  
-
+    saveBadActorID(ctx); 
     ctx.tg.deleteMessage(ctx.chat.id, ctx.message.message_id);
     
     if (ctx.update.message.from.username !== admin) {
-        ctx.reply(`Message from @${badActorUsername} was deleted because: ${messageReason["Partner Channel"]}`);
+        deletedMessageReply(ctx);
     } else {
         console.log("Admin is saying:", ctx.update.message.text);
     }
@@ -80,10 +79,10 @@ bot.hears(telegramRegex, (ctx) => {
     var telegramAccountMentionsCount = telegramMessage.match(telegramRegex).length;
     saveBadActorID(ctx);
 
-    console.log(telegramAccountMentionsCount);
-    console.log(ctx.update.message.from);
+    //console.log("Telegram Username count:", telegramAccountMentionsCount);
 
-    if (telegramAccountMentionsCount >= 3 || ctx.update.message.from.username !== admin) {
+    if (telegramAccountMentionsCount >= 3 && ctx.update.message.from.username !== admin) {
+        deletedMessageReply(ctx);
         ctx.tg.deleteMessage(ctx.chat.id, ctx.message.message_id);
     }
 })
@@ -103,7 +102,13 @@ var saveBadActorID = (ctx) => {
     var badActorId = ctx.update.message.from.id;
 
     usernameToIDTable[badActorUsername] = badActorId;           //Save this users ID for potential ban action    
-    console.log(usernameToIDTable); 
     console.log(`Saved Bad Actor(@${badActorUsername}) ID:`, badActorId);
+    console.log("Updated userID table:", usernameToIDTable); 
+}
+
+var deletedMessageReply = (ctx) => {
+    var badActorUsername = ctx.update.message.from.username; 
+    console.log(`Message from @${badActorUsername} was deleted because: ${ctx.update.message.text}`);
+    ctx.reply(`Message from @${badActorUsername} was deleted because: ${messageReason["Partner Channel"]}`);
 }
 
