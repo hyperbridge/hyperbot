@@ -8,6 +8,7 @@
  * - Ban users (Admin Only)
  * - Auto-Delete specified phrases
  * - Auto-Delete messages with multiple Telegram Usernames
+ * - Saves all messages to messages.json
  */
 
 
@@ -15,6 +16,8 @@ const Telegraf = require('telegraf');   // Module to use Telegraf API.
 const {Extra, Markup} = Telegraf;   // Extract Extra, Markups from Telegraf module.
 const config = require('./config'); // Configuration file that holds telegraf_token API key.
 const axios = require("axios");
+const fs = require("fs");
+const moment = require("moment");
 
 const admin = "ashtqz";
 
@@ -25,6 +28,7 @@ var messageReason = {
     "Join my": "Potential spam",
     "Partner Channel": "Potential spam"
 };
+var messagesForStorage;
 
 const bot = new Telegraf(config.telegraf_token);    // Let's instantiate a bot using our token.
 
@@ -40,7 +44,7 @@ bot.on('new_chat_members', (ctx) => {
     var newUsername = ctx.message.new_chat_members[0].username;
     var newUserID = ctx.message.new_chat_members[0].id;
     usernameToIDTable[newUsername] = newUserID;
-    console.log(usernameToIDTable);
+    //console.log(usernameToIDTable);
 });
 
 // Admin can ban by username
@@ -78,6 +82,7 @@ bot.hears(telegramRegex, (ctx) => {
     var telegramMessage = ctx.update.message.text;
     var telegramAccountMentionsCount = telegramMessage.match(telegramRegex).length;
     saveBadActorID(ctx);
+    writeMessagesToJSON(ctx);
 
     //console.log("Telegram Username count:", telegramAccountMentionsCount);
 
@@ -85,6 +90,11 @@ bot.hears(telegramRegex, (ctx) => {
         deletedMessageReply(ctx);
         ctx.tg.deleteMessage(ctx.chat.id, ctx.message.message_id);
     }
+})
+
+//Records messages to messages.json
+bot.on("message", (ctx) => {
+    writeMessagesToJSON(ctx);
 })
 
 
@@ -112,3 +122,35 @@ var deletedMessageReply = (ctx) => {
     ctx.reply(`Message from @${badActorUsername} was deleted because: ${messageReason["Partner Channel"]}`);
 }
 
+var fetchMessages = () => {
+    try {
+        return JSON.parse(fs.readFileSync("messages.json")); 
+    } catch (e) {
+        return [];
+    }
+}
+
+var saveMessages = (messages) => {
+    fs.writeFileSync("messages.json", JSON.stringify(messages));
+};
+
+var writeMessagesToJSON = (ctx) => {
+    var telegramMessage = {
+        timestamp: moment.unix(ctx.update.message.date).format("DD-MM-YYYY HH:mm:ss"),
+        userID: ctx.update.message.from.id,
+        username: ctx.update.message.from.username,
+        isReply: (ctx.update.message.entities ? true : false),
+        messageText: ctx.update.message.text,
+    }
+    messagesForStorage = fetchMessages();
+    console.log(telegramMessage);
+
+    messagesForStorage.push(telegramMessage);
+
+    try {
+        saveMessages(messagesForStorage);
+        console.log("Storage Successful");
+    } catch (e) {
+        console.log("Unable to store the message");
+    }
+}
