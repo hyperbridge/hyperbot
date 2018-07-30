@@ -40,6 +40,13 @@ If it prints:
 ```
 ...congratulations! Now bot will do what you want.
 
+ ## Features: 
+ - Ban users (Admin Only)
+ - Auto-Delete specified phrases
+ - Auto-Delete messages with multiple Telegram Usernames
+ - Saves all messages to messages.csv
+ - Add new messages to delete (Admin Only)
+
 
 For more informations, check Telegraf API: https://github.com/telegraf/telegraf.
 For inline support results, check: https://core.telegram.org/bots/api#inlinequeryresult.

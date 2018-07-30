@@ -8,7 +8,8 @@
  * - Ban users (Admin Only)
  * - Auto-Delete specified phrases
  * - Auto-Delete messages with multiple Telegram Usernames
- * - Saves all messages to messages.json
+ * - Saves all messages to messages.csv
+ * - Add new messages to delete (Admin Only)
  */
 
 
@@ -19,10 +20,13 @@ const axios = require("axios");
 const fs = require("fs");
 const moment = require("moment");
 
-const admin = "ashtqz";
+const admin =   ["ashtqz",
+                "fr0stbyte2",
+                "JPCullen",
+                "drandalm"];
 
 var usernameToIDTable = {fr0stbyte2: 420734418, JPCullen: 489252909};         //Dictionary for mapping usernames to ID
-var messagesToDelete = [/Join my/gi, /Partner Channel/gi];
+var messagesToDelete = [/Join my/gi, /Partner Channel/gi, /Make money/gi];
 var telegramRegex = /@[a-zA-Z0-9_]*/gi;
 var messageReason = {
     "Join my": "Potential spam",
@@ -44,6 +48,7 @@ bot.on('new_chat_members', (ctx) => {
     var newUsername = ctx.message.new_chat_members[0].username;
     var newUserID = ctx.message.new_chat_members[0].id;
     usernameToIDTable[newUsername] = newUserID;
+
     //console.log(usernameToIDTable);
 });
 
@@ -52,37 +57,46 @@ bot.on('new_chat_members', (ctx) => {
 // Format: !ban @exampleUsername
 bot.hears(/!ban/i, (ctx) => {
     console.log(ctx.update.message.from);
-    if (ctx.update.message.from.username === admin) {
+    if (checkIfAdmin(ctx)) {
         var userNameToBan = (ctx.update.message.text).slice(6);
         var userIdToBan = usernameToIDTable[userNameToBan];
-        console.log(`Banning Username(@${userNameToBan}) ID:`, userIdToBan);
-        ctx.reply(`@${userNameToBan} was removed from group because: Spam account`);
-        ctx.tg.kickChatMember(ctx.chat.id, userIdToBan).then(function() {console.log("Ban Successful");}, function(err) {console.log("Ban was unsucessful", err);});
+        try {
+            console.log(`Banning Username(@${userNameToBan}) ID:`, userIdToBan);
+            ctx.tg.kickChatMember(ctx.chat.id, userIdToBan);
+            console.log("Ban Successful");
+            ctx.reply(`@${userNameToBan} was removed from group because: Spam account`);            
+        } catch (e) {
+            console.log("Ban Unsuccessful");
+            console.log(e);
+        }
     } else {
-        saveBadActorID(ctx);
+        saveUserID(ctx);
         console.log(`@${ctx.update.message.from.username} is trying to ban`);
         ctx.tg.deleteMessage(ctx.chat.id, ctx.message.message_id);
     }
 });
 
-// Automatically deletes messages in the telegram chat that has the specific phrases in messagesToDelete
-bot.hears(messagesToDelete, (ctx) => {
-    saveBadActorID(ctx); 
-    ctx.tg.deleteMessage(ctx.chat.id, ctx.message.message_id);
-    
-    if (ctx.update.message.from.username !== admin) {
-        deletedMessageReply(ctx);
+//Add new messages to delete 
+//Format: !newMessageToDelete Partner Channel
+bot.hears(/!newMessageToDelete/i, (ctx) => {
+    if(checkIfAdmin(ctx)) {
+        var theRegexToDelete = new RegExp((ctx.update.message.text).slice(20), "gi");
+        console.log(`Added new Regex to delete: ${theRegexToDelete}`);
+        messagesToDelete.push(theRegexToDelete); 
+        console.log(messagesToDelete);
     } else {
-        console.log("Admin is saying:", ctx.update.message.text);
+        saveUserID(ctx);
+        console.log(`@${ctx.update.message.from.username} is trying to add new messages to delete`);
+        ctx.tg.deleteMessage(ctx.chat.id, ctx.message.message_id);
     }
-});
+})
 
 // Deletes message if there are more than 3 telegram channel mentions in the message
 bot.hears(telegramRegex, (ctx) => {
     var telegramMessage = ctx.update.message.text;
     var telegramAccountMentionsCount = telegramMessage.match(telegramRegex).length;
-    saveBadActorID(ctx);
-    appendToFile(ctx);
+    saveUserID(ctx);
+    appendToFile(ctx, "messages.csv");
 
     //console.log("Telegram Username count:", telegramAccountMentionsCount);
 
@@ -92,9 +106,18 @@ bot.hears(telegramRegex, (ctx) => {
     }
 })
 
-//Records messages to messages.json
+// Records messages to messages.csv
+// Save messages in this format: Timestamp,UserID,Username,IsReply,Message
+// Automatically deletes messages that match regex 
 bot.on("message", (ctx) => {
-    appendToFile(ctx);
+    saveUserID(ctx);
+    appendToFile(ctx, "messages.csv");
+    if (matchesCommand(ctx.update.message.text) && !checkIfAdmin(ctx)) {
+        ctx.tg.deleteMessage(ctx.chat.id, ctx.message.message_id);
+        deletedMessageReply(ctx);
+    } else if (matchesCommand(ctx.update.message.text) && checkIfAdmin(ctx)){
+        console.log("Admin is saying:", ctx.update.message.text);        
+    }
 })
 
 
@@ -103,16 +126,26 @@ bot.startPolling();
 
 
 
+
+
+
+
+
+
+
+
+
+
 /**
  * Helper Functions 
  */
 
-var saveBadActorID = (ctx) => {
+var saveUserID = (ctx) => {
     var badActorUsername = ctx.update.message.from.username;
     var badActorId = ctx.update.message.from.id;
 
     usernameToIDTable[badActorUsername] = badActorId;           //Save this users ID for potential ban action    
-    console.log(`Saved Bad Actor(@${badActorUsername}) ID:`, badActorId);
+    console.log(`Saved Username:(@${badActorUsername}) ID:`, badActorId);
     console.log("Updated userID table:", usernameToIDTable); 
 }
 
@@ -122,16 +155,52 @@ var deletedMessageReply = (ctx) => {
     ctx.reply(`Message from @${badActorUsername} was deleted because: ${messageReason["Partner Channel"]}`);
 }
 
-var appendToFile = (ctx) => {
-    var telegramMessage = 
-        `\n${moment.unix(ctx.update.message.date).format("DD-MM-YYYY HH:mm:ss")},${ctx.update.message.from.id},${ctx.update.message.from.username},${(ctx.update.message.entities ? true : false)},${ctx.update.message.text}`
+var checkIfAdmin = (ctx) => {
+    if (admin.indexOf(ctx.update.message.from.username) !== -1) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
+// Save messages in this format: Timestamp,UserID,Username,IsReply,Message
+var appendToFile = (ctx, storageFile) => {
+    messageText = (ctx.update.message.text).replace(/(\r\n|\n|\r)/gm," ");  //Remove line breaks
+    
+    if (storageFile === "messages.csv") {
+        var telegramMessage = `\n${moment.unix(ctx.update.message.date).format("DD-MM-YYYY HH:mm:ss")},${ctx.update.message.from.id},${ctx.update.message.from.username},${(ctx.update.message.entities ? true : false)},"${messageText}"`
+    } 
 
     console.log(telegramMessage);
 
     try {
-        fs.appendFileSync("messages.json", (`${telegramMessage}`));        
+        fs.appendFileSync(storageFile, (`${telegramMessage}`));        
     } catch (e) {
         console.log("Unable to store the message");
         console.log("Error Message:" + e);        
     }
 }
+
+const matchesCommand = (text) => {
+    for (var i in messagesToDelete) {
+        if (text.match(messagesToDelete[i])) {
+            return true
+        }
+    }
+    return false
+}
+
+
+
+
+// //Admin can add new Admins -> be able to add to admins to the bot without
+// bot.hears(/!addAdmin/i, (ctx) => {
+//     if(checkIfAdmin(ctx)) {
+//         var userNameToAdd = (ctx.update.message.text).slice(11);
+//         admin.push(userNameToAdd);
+//     } else {
+//         saveUserID(ctx);
+//         console.log(`@${ctx.update.message.from.username} is trying to add new admins`);
+//         ctx.tg.deleteMessage(ctx.chat.id, ctx.message.message_id);
+//     }
+// })
