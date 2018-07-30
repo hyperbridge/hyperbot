@@ -91,12 +91,39 @@ bot.hears(/!newMessageToDelete/i, (ctx) => {
     }
 })
 
+// Records messages to messages.csv
+// Save messages in this format: Timestamp,UserID,Username,IsReply,Message
+// Automatically deletes messages that match regex 
+bot.on("message", (ctx) => {
+    saveUserID(ctx);
+    if (ctx.update.message.text)
+    try {
+        appendToFile(ctx, "messages.csv");
+        console.log("Successfully saved message");
+        if (matchesCommand(ctx.update.message.text) && !checkIfAdmin(ctx)) {
+            ctx.tg.deleteMessage(ctx.chat.id, ctx.message.message_id);
+            deletedMessageReply(ctx);
+        } else if (matchesCommand(ctx.update.message.text) && checkIfAdmin(ctx)){
+            console.log("Admin is saying:", ctx.update.message.text);        
+        }
+    } catch (e) {
+        console.log("Unsuccessful in saving new message");
+        console.log(e);
+    }
+})
+
+
 // Deletes message if there are more than 3 telegram channel mentions in the message
 bot.hears(telegramRegex, (ctx) => {
     var telegramMessage = ctx.update.message.text;
     var telegramAccountMentionsCount = telegramMessage.match(telegramRegex).length;
     saveUserID(ctx);
-    appendToFile(ctx, "messages.csv");
+    try {
+        appendToFile(ctx, "messages.csv");
+    } catch (e) {
+        console.log("Unsuccessful in saving new message");
+        console.log(e);
+    }
 
     //console.log("Telegram Username count:", telegramAccountMentionsCount);
 
@@ -106,19 +133,7 @@ bot.hears(telegramRegex, (ctx) => {
     }
 })
 
-// Records messages to messages.csv
-// Save messages in this format: Timestamp,UserID,Username,IsReply,Message
-// Automatically deletes messages that match regex 
-bot.on("message", (ctx) => {
-    saveUserID(ctx);
-    appendToFile(ctx, "messages.csv");
-    if (matchesCommand(ctx.update.message.text) && !checkIfAdmin(ctx)) {
-        ctx.tg.deleteMessage(ctx.chat.id, ctx.message.message_id);
-        deletedMessageReply(ctx);
-    } else if (matchesCommand(ctx.update.message.text) && checkIfAdmin(ctx)){
-        console.log("Admin is saying:", ctx.update.message.text);        
-    }
-})
+
 
 
 // Start bot polling in order to not terminate Node.js application.
