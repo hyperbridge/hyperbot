@@ -82,7 +82,7 @@ bot.hears(telegramRegex, (ctx) => {
     var telegramMessage = ctx.update.message.text;
     var telegramAccountMentionsCount = telegramMessage.match(telegramRegex).length;
     saveBadActorID(ctx);
-    writeMessagesToJSON(ctx);
+    appendToFile(ctx);
 
     //console.log("Telegram Username count:", telegramAccountMentionsCount);
 
@@ -94,7 +94,7 @@ bot.hears(telegramRegex, (ctx) => {
 
 //Records messages to messages.json
 bot.on("message", (ctx) => {
-    writeMessagesToJSON(ctx);
+    appendToFile(ctx);
 })
 
 
@@ -122,35 +122,16 @@ var deletedMessageReply = (ctx) => {
     ctx.reply(`Message from @${badActorUsername} was deleted because: ${messageReason["Partner Channel"]}`);
 }
 
-var fetchMessages = () => {
-    try {
-        return JSON.parse(fs.readFileSync("messages.json")); 
-    } catch (e) {
-        return [];
-    }
-}
+var appendToFile = (ctx) => {
+    var telegramMessage = 
+        `\n${moment.unix(ctx.update.message.date).format("DD-MM-YYYY HH:mm:ss")},${ctx.update.message.from.id},${ctx.update.message.from.username},${(ctx.update.message.entities ? true : false)},${ctx.update.message.text}`
 
-var saveMessages = (messages) => {
-    fs.writeFileSync("messages.json", JSON.stringify(messages));
-};
-
-var writeMessagesToJSON = (ctx) => {
-    var telegramMessage = {
-        timestamp: moment.unix(ctx.update.message.date).format("DD-MM-YYYY HH:mm:ss"),
-        userID: ctx.update.message.from.id,
-        username: ctx.update.message.from.username,
-        isReply: (ctx.update.message.entities ? true : false),
-        messageText: ctx.update.message.text,
-    }
-    messagesForStorage = fetchMessages();
     console.log(telegramMessage);
 
-    messagesForStorage.push(telegramMessage);
-
     try {
-        saveMessages(messagesForStorage);
-        console.log("Storage Successful");
+        fs.appendFileSync("messages.json", (`${telegramMessage}`));        
     } catch (e) {
         console.log("Unable to store the message");
+        console.log("Error Message:" + e);        
     }
 }
