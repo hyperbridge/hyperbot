@@ -1,5 +1,7 @@
 # Telegram Bot for Hyperbridge Channels
 
+[![Greenkeeper badge](https://badges.greenkeeper.io/hyperbridge/telegram-bot.svg)](https://greenkeeper.io/)
+
 ## Telegram Channel: https://t.me/hyperbridgechat
 
  Modified From: Fabio Crispino aka Finalgalaxy Telegram Bot in NodeJS
